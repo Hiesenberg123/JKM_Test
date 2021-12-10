@@ -1,0 +1,130 @@
+---
+title: "JKM_1"
+author: "Kunal"
+date: "12/2/2021"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(RODBC)
+library(Hmisc)
+library(datasets)
+library(shiny)
+library(flexdashboard)
+library(graphics)
+library(shinydashboard)
+
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+
+library(rpivotTable)
+library(DT)
+library(methods)
+library(readr)
+library(sodium)
+library(shinyjs)
+library(shiny)
+
+library(readr)
+
+library(maptools)
+
+
+df<- mdb.get("UP_124/AC_124.mdb")
+Control <- read_excel("UP_124/Control.xlsx")
+#S24AC124 <- read_excel("S24AC124.xlsx")
+X <- read_excel("colname.xlsx")%>% as.data.frame()
+
+table<- function(df){
+  #X<- X[,2]
+  modi_df<- matrix(data = NA, nrow = dim(df)[1], ncol = dim(X)[1])
+  colnames(modi_df)<- X[,2]
+  modi_df<- as.data.frame(modi_df)
+  modi_df[1:dim(df)[1],c(1:18, 19)]<- df[1:dim(df)[1], c(1:18, 20)]
+  for (i in 1:dim(Control)[1]) {
+    modi_df$PartNameEn[modi_df$PartNo== Control$PART_NO[i]]<- Control$PART_NAME_EN[i]
+    modi_df$PartName[modi_df$PartNo== Control$PART_NO[i]]<- Control$PART_NAME_V1[i]
+  }
+  return(modi_df)
+}
+
+sub_tbl<- function(dt, Part, section, gender, age_qtl){
+  sub<- dt
+  R<- quantile(sub$Age)
+  if(Part!= "All"){sub <- subset(sub, PartNameEn == Part)}
+  if(section!= "All"){sub <- subset(sub, SectionNo == section)}
+  if(gender!= "All"){sub <- subset(sub, Sex == gender)}
+  if(age_qtl!= "All"){sub <- subset(sub, Age > R[as.numeric(age_qtl)] & Age < R[as.numeric(age_qtl)+1])}
+  return(sub)
+}
+```
+
+ 
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R datatable can be made interactive by wrapping it in the Shiny `renderDataTable` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r eruptions, echo=FALSE}
+#source("utils.R")
+inputPanel(
+  selectInput("Part", label = "Part Name:",
+              choices = c("All", unique(Control$PART_NAME_EN)), selected = "All"),
+  selectInput("section", label = "Section No:",
+              choices = c("All", unique(df$SECTION.NO)), selected = "All"),
+  selectInput("gender", label = "Gender:",
+              choices = c("All", "M", "F"), selected = "All"),
+  selectInput("age_qtl", label = "Age Quantile:",
+              choices = c("All", "1","2","3","4") , selected = "All"),
+  
+  actionButton("submit", "Submit")
+)
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Summary
+  
+```{r, echo= FALSE}
+dt<- table(df)
+
+my_data2<- reactive({
+  dt_sub<- sub_tbl(dt, input$Part, input$section, input$gender, input$age_qtl)
+  return(dt_sub)
+})
+
+renderDataTable({
+  datatable(summary(my_data2()), extensions = 'Buttons', options = list(
+    dom = 'Blfrtip',
+    buttons = c('csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,25,50,-1),c(10,25,50,"All")),
+    scrollX = TRUE, scrolly= TRUE
+  ))
+})
+```
+
+### Table
+
+```{r, echo= FALSE}
+
+renderDataTable({
+  datatable(my_data2(), extensions = 'Buttons', options = list(
+    dom = 'Blfrtip',
+    buttons = c('csv', 'excel', 'pdf', 'print'),
+    lengthMenu = list(c(10,25,50,-1),c(10,25,50,"All")),
+    scrollX = TRUE, scrolly= TRUE
+  ))
+})
+```
+
+It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
+
+
+
+
+
